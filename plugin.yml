@@ -1,0 +1,19 @@
+name: Jenkins Deploy
+description: Trigger the Jenkins deployer from a BuildKite pipeline.
+author: https://github.com/FUTRLI
+requirements:
+  - bash
+  - aws
+configuration:
+  properties:
+    lambda:
+      type: string
+    job:
+      type: string
+    iam-role:
+      type: string
+
+  required:
+    - lambda
+    - job
+    - iam-role
