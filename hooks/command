@@ -12,6 +12,7 @@ export AWS_ACCESS_KEY_ID=$(echo ${TEMP_ROLE} | jq .Credentials.AccessKeyId | xar
 export AWS_SECRET_ACCESS_KEY=$(echo ${TEMP_ROLE} | jq .Credentials.SecretAccessKey | xargs)
 export AWS_SESSION_TOKEN=$(echo ${TEMP_ROLE} | jq .Credentials.SessionToken | xargs)
 
+
 echo {\"jenkins_job\": \"${JOB}\", \"tag\": \"${BUILDKITE_COMMIT}\"} > ./input.txt
 
 aws lambda invoke \
