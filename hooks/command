@@ -15,7 +15,7 @@ export AWS_SECRET_ACCESS_KEY=$(echo ${TEMP_ROLE} | jq .Credentials.SecretAccessK
 export AWS_SESSION_TOKEN=$(echo ${TEMP_ROLE} | jq .Credentials.SessionToken | xargs)
 
 cat << EOF > input.txt
-{"jenkins_job": "${JOB}", "tag": "${DEPLOY_SHA}"}
+{"jenkins_job": "${JOB}", "deploy_sha": "${DEPLOY_SHA}"}
 EOF
 
 aws lambda invoke \
