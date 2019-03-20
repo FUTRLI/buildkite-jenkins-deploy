@@ -5,7 +5,7 @@ JOB=${BUILDKITE_PLUGIN_BUILDKITE_JENKINS_DEPLOY_GIT_JOB}
 IAM_ROLE=${BUILDKITE_PLUGIN_BUILDKITE_JENKINS_DEPLOY_GIT_IAM_ROLE}
 REGION=eu-west-1
 
-TAG=${JENKINS_PARAM_TAG:-$BUILDKITE_COMMIT}
+DEPLOY_SHA=${JENKINS_PARAM_TAG:-$BUILDKITE_COMMIT}
 
 echo "Assume Role"
 TEMP_ROLE=$(aws sts assume-role --role-arn="${IAM_ROLE}" --role-session-name=lambda-invoke)
@@ -15,7 +15,7 @@ export AWS_SECRET_ACCESS_KEY=$(echo ${TEMP_ROLE} | jq .Credentials.SecretAccessK
 export AWS_SESSION_TOKEN=$(echo ${TEMP_ROLE} | jq .Credentials.SessionToken | xargs)
 
 cat << EOF > input.txt
-{"jenkins_job": "${JOB}", "tag": "${TAG}"}
+{"jenkins_job": "${JOB}", "deploy_sha": "${DEPLOY_SHA}"}
 EOF
 
 aws lambda invoke \
