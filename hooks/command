@@ -1,5 +1,16 @@
 #!/usr/bin/env bash
 
+checkJQInstalled () {
+    which jq &>/dev/null
+
+    if [[ $? -ne 0 ]] ; then
+        echo "downloading jq..."
+        curl -s https://github.com/stedolan/jq/releases/download/jq-1.5/jq-linux64 -O /usr/bin/jq
+
+        echo "jq available at /usr/bin/jq"
+    fi    
+}
+
 LAMBDA=${BUILDKITE_PLUGIN_BUILDKITE_JENKINS_DEPLOY_GIT_LAMBDA}
 JOB=${BUILDKITE_PLUGIN_BUILDKITE_JENKINS_DEPLOY_GIT_JOB}
 IAM_ROLE=${BUILDKITE_PLUGIN_BUILDKITE_JENKINS_DEPLOY_GIT_IAM_ROLE}
@@ -22,4 +33,51 @@ aws lambda invoke \
     --invocation-type RequestResponse \
     --function-name=${LAMBDA} \
     --region=${REGION} \
-    --payload=file://input.txt /tmp/outfile
+    --payload=file://input.txt creation_response.json
+
+
+# 90 Minutes
+max_attempts=180
+sleep_period=30
+i=0
+
+watch_input_file=file://creation_response.json
+
+checkJQInstalled
+
+while [ $i -lt $max_attempts ]
+do
+    aws lambda invoke \
+        --invocation-type RequestResponse \
+        --function-name="${LAMBDA}Watcher" \
+        --region=${REGION} \
+        --payload=$watch_input_file status.json
+
+    if [[ $? -ne 0 ]] ; then
+        echo $resp
+        exit 1
+    fi
+
+    watch_input_file=file://status.json
+
+    ts=$(date "+%Y-%m-%d %H:%M:%S")
+
+    deployment_status=`cat status.json | jq -r .status`
+
+    case "$deployment_status" in
+    "success") echo "[$ts] Deployment succeeded"
+        exit 0
+        ;;
+    "failure") echo "[$ts] Deployment failed"
+        cat status.json | jq -r .reason
+        exit 1
+        ;;
+    *) echo "[$ts] Deployment is ongoing, waiting for $wait_period seconds"
+        ;;
+    esac
+    i=$(( $i + 1 ))
+    sleep $sleep_period
+done
+
+echo "Deployment did not complete within the configured time"
+exit 1
