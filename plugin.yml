@@ -12,6 +12,8 @@ configuration:
       type: string
     iam-role:
       type: string
+    parameter-name:
+      type: string
 
   required:
     - lambda

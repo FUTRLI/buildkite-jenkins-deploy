@@ -1,9 +1,7 @@
 #!/usr/bin/env bash
 
 checkJQInstalled () {
-    which jq &>/dev/null
-
-    if [[ $? -ne 0 ]] ; then
+    if ! [ -x "$(command -v jq)" ]; then
         echo "downloading jq..."
         curl -s https://github.com/stedolan/jq/releases/download/jq-1.5/jq-linux64 -O /usr/bin/jq
 
@@ -16,25 +14,29 @@ JOB=${BUILDKITE_PLUGIN_BUILDKITE_JENKINS_DEPLOY_GIT_JOB}
 IAM_ROLE=${BUILDKITE_PLUGIN_BUILDKITE_JENKINS_DEPLOY_GIT_IAM_ROLE}
 REGION=eu-west-1
 
-DEPLOY_SHA=${JENKINS_PARAM_TAG:-$BUILDKITE_COMMIT}
+PARAMETER_NAME=${BUILDKITE_PLUGIN_BUILDKITE_JENKINS_DEPLOY_GIT_PARAMETER_NAME:-deploy_sha}
+PARAMETER_VALUE=${JENKINS_PARAM_TAG:-$BUILDKITE_COMMIT}
 
 echo "Assume Role"
 TEMP_ROLE=$(aws sts assume-role --role-arn="${IAM_ROLE}" --role-session-name=lambda-invoke)
 
-export AWS_ACCESS_KEY_ID=$(echo ${TEMP_ROLE} | jq .Credentials.AccessKeyId | xargs)
-export AWS_SECRET_ACCESS_KEY=$(echo ${TEMP_ROLE} | jq .Credentials.SecretAccessKey | xargs)
-export AWS_SESSION_TOKEN=$(echo ${TEMP_ROLE} | jq .Credentials.SessionToken | xargs)
+AWS_ACCESS_KEY_ID="$(echo "${TEMP_ROLE}" | jq .Credentials.AccessKeyId | xargs)"
+AWS_SECRET_ACCESS_KEY="$(echo "${TEMP_ROLE}" | jq .Credentials.SecretAccessKey | xargs)"
+AWS_SESSION_TOKEN="$(echo "${TEMP_ROLE}" | jq .Credentials.SessionToken | xargs)"
+
+export AWS_ACCESS_KEY_ID
+export AWS_SECRET_ACCESS_KEY
+export AWS_SESSION_TOKEN
 
 cat << EOF > input.txt
-{"jenkins_job": "${JOB}", "deploy_sha": "${DEPLOY_SHA}"}
+{"jenkins_job": "${JOB}", "${PARAMETER_NAME}": "${PARAMETER_VALUE}"}
 EOF
 
 aws lambda invoke \
     --invocation-type RequestResponse \
-    --function-name=${LAMBDA} \
+    --function-name="${LAMBDA}" \
     --region=${REGION} \
     --payload=file://input.txt creation_response.json
-
 
 # 90 Minutes
 max_attempts=180
@@ -47,14 +49,13 @@ checkJQInstalled
 
 while [ $i -lt $max_attempts ]
 do
-    aws lambda invoke \
+
+    if ! aws lambda invoke \
         --invocation-type RequestResponse \
         --function-name="${LAMBDA}Watcher" \
         --region=${REGION} \
         --payload=$watch_input_file status.json
-
-    if [[ $? -ne 0 ]] ; then
-        echo $resp
+    then
         exit 1
     fi
 
@@ -62,20 +63,20 @@ do
 
     ts=$(date "+%Y-%m-%d %H:%M:%S")
 
-    deployment_status=`cat status.json | jq -r .status`
+    deployment_status=$(jq -r .status > status.json)
 
     case "$deployment_status" in
     "success") echo "[$ts] Deployment succeeded"
         exit 0
         ;;
     "failure") echo "[$ts] Deployment failed"
-        cat status.json | jq -r .reason
+        jq -r .reason < status.json
         exit 1
         ;;
-    *) echo "[$ts] Deployment is ongoing, waiting for $wait_period seconds"
+    *) echo "[$ts] Deployment is ongoing, waiting for $sleep_period seconds"
         ;;
     esac
-    i=$(( $i + 1 ))
+    i=$(( i + 1 ))
     sleep $sleep_period
 done
 
