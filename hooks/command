@@ -38,6 +38,8 @@ aws lambda invoke \
     --region=${REGION} \
     --payload=file://input.txt creation_response.json
 
+sleep 60
+
 # 90 Minutes
 max_attempts=180
 sleep_period=30
