@@ -38,8 +38,6 @@ aws lambda invoke \
     --region=${REGION} \
     --payload=file://input.txt creation_response.json
 
-sleep 60
-
 # 90 Minutes
 max_attempts=180
 sleep_period=30
@@ -65,7 +63,7 @@ do
 
     ts=$(date "+%Y-%m-%d %H:%M:%S")
 
-    deployment_status=$(jq -r .status > status.json)
+    deployment_status=$(jq -r .status < status.json)
 
     case "$deployment_status" in
     "success") echo "[$ts] Deployment succeeded"
