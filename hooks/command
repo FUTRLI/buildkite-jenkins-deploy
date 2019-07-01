@@ -6,7 +6,7 @@ checkJQInstalled () {
         curl -s https://github.com/stedolan/jq/releases/download/jq-1.5/jq-linux64 -O /usr/bin/jq
 
         echo "jq available at /usr/bin/jq"
-    fi    
+    fi
 }
 
 LAMBDA=${BUILDKITE_PLUGIN_BUILDKITE_JENKINS_DEPLOY_GIT_LAMBDA}
@@ -32,11 +32,15 @@ cat << EOF > input.txt
 {"jenkins_job": "${JOB}", "${PARAMETER_NAME}": "${PARAMETER_VALUE}"}
 EOF
 
+echo "Invoke Jenkins lambda with $(cat input.txt)"
 aws lambda invoke \
     --invocation-type RequestResponse \
     --function-name="${LAMBDA}" \
     --region=${REGION} \
     --payload=file://input.txt creation_response.json
+
+echo "Lambda creation response:"
+cat creation_response.json
 
 # 90 Minutes
 max_attempts=180
